@@ -1,9 +1,3 @@
-/*
- Name:		CM_SS_client.ino
- Created:	10/2/2016 1:32:00 AM
- Author:	Pranav
-*/
-
 
 #include <ESP8266WiFi.h>
 #include <WiFiUDP.h>
@@ -15,6 +9,7 @@
 #define SEPARATORbeg "."
 #define SEPARATORend ">"
 #define MYNAME ".channel1>" 
+
 
 /*
 format for chat string
@@ -44,7 +39,23 @@ void sendMessage(String data, IPAddress sendIP) {
 	Udp.write(data.c_str());
 	Udp.endPacket();
 }
-
+void checkConnection(){
+  WiFi.begin(serverSSID, password);
+ int tries=0;
+ while (WiFi.status() != WL_CONNECTED) {
+   delay(500);
+    Serial.print(".");
+    tries++;
+    if (tries > 30){
+      break;
+    }
+  }
+  if(WiFi.status() != WL_CONNECTED){unconnected=1;}
+  else{unconnected=0;}
+  printWifiStatus();
+  serverIP=WiFi.gatewayIP();
+  TIME=millis();
+  }
 #define SIGN 40
 void debuggerInit(){
   
@@ -75,54 +86,29 @@ void setup(){
 	Serial.println(CLIENT_PORT);
 	Serial.print("begin =");
 	Serial.println(Udp.begin(CLIENT_PORT));
-
-
+  
+  TIME=millis();  
 	// Open serial communications and wait for port to open:
-	
-	WiFi.mode(WIFI_STA);
-	WiFi.begin(serverSSID, password);
- int tries=0;
- while (WiFi.status() != WL_CONNECTED) {
-   delay(500);
-    Serial.print(".");
-    tries++;
-    if (tries > 30){
-      break;
-    }
-  }
-  printWifiStatus();
-  serverIP=WiFi.gatewayIP();
-TIME=millis();
-}
-void checkConnection(){
-  WiFi.begin(serverSSID, password);
- int tries=0;
- while (WiFi.status() != WL_CONNECTED) {
-   delay(500);
-    Serial.print(".");
-    tries++;
-    if (tries > 30){
-      break;
-    }
-  }
-  if(WiFi.status() != WL_CONNECTED){unconnected=1;}
-  else{unconnected=0;}
-  printWifiStatus();
-  serverIP=WiFi.gatewayIP();
+  checkConnection();
   TIME=millis();
-  }
+}
+
 
 void loop(){
-  if(WiFi.status() != WL_CONNECTED){unconnected=1;}
-  if(millis()>TIME+10000 && unconnected){
-    TIME=millis();
+	
+	if (WiFi.status() != WL_CONNECTED){
+		unconnected = 1;
+		//reconnection attempt happens only after 10 seconds since random loss of connections is not expected
+	}
+  if(millis()>TIME+10000 && unconnected==1){
     checkConnection();
     }
 	char inBuffer[128] = {}; //buffer to hold incoming and outgoing packets
 	String outBuffer = MYNAME;
-	if (Serial.available()){
+	if (Serial.available() && unconnected==0){
 		//parse the serial input to send
-		outBuffer = outBuffer + Serial.readString();
+		outBuffer = outBuffer + Serial.readStringUntil('\n');
+		Serial.read();//removes '\n' from stream
 		sendMessage(outBuffer, serverIP);
 	}
 
